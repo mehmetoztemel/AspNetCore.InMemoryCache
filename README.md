@@ -1,0 +1,2 @@
+# AspNetCore.InMemoryCache
+ AspNetCore.InMemoryCache
