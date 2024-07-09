@@ -15,17 +15,27 @@ namespace AspNetCore.InMemoryCache.Controllers
         IMemoryCache _memoryCache;
         const string PersonsCacheKey = "persons";
         private ApplicationDbContext _dbContext;
+        MemoryCacheEntryOptions _cacheOptions;
 
         public PersonsController(IMemoryCache memoryCache, ApplicationDbContext dbContext)
         {
             _memoryCache = memoryCache;
             _dbContext = dbContext;
+            _cacheOptions = new MemoryCacheEntryOptions()
+            {
+                // verinin ne kadar bellekte kalacağını bildiriyoruz.
+                AbsoluteExpiration = DateTime.Now.AddMinutes(10)
+                //AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+
+                // veriye son erişimden sonra belirtilen süre kadar erişilmezse bellekten siler
+                //SlidingExpiration = TimeSpan.FromSeconds(10),
+            };
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            _memoryCache.TryGetValue(PersonsCacheKey, out List<Person> data);
+            _memoryCache.TryGetValue(PersonsCacheKey, out List<Person>? data);
             if (data != null)
             {
                 return Ok(data);
@@ -33,12 +43,7 @@ namespace AspNetCore.InMemoryCache.Controllers
             else
             {
                 data = await _dbContext.Persons.ToListAsync();
-
-                MemoryCacheEntryOptions cacheOptions = new MemoryCacheEntryOptions();
-                cacheOptions.AbsoluteExpiration = DateTime.Now.AddMinutes(1);
-
-                _memoryCache.Set(PersonsCacheKey, data, cacheOptions);
-                var cacheData = _memoryCache.Get<List<Person>>(PersonsCacheKey);
+                _memoryCache.Set(PersonsCacheKey, data, _cacheOptions);
                 return Ok(data);
             }
         }
@@ -51,7 +56,9 @@ namespace AspNetCore.InMemoryCache.Controllers
 
             await _dbContext.Persons.AddAsync(person, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
-
+            List<Person> personList = await _dbContext.Persons.ToListAsync(cancellationToken);
+            _memoryCache.Remove(PersonsCacheKey);
+            _memoryCache.Set(PersonsCacheKey, personList, _cacheOptions);
             return Created();
         }
     }
