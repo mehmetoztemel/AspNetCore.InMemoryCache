@@ -8,7 +8,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace AspNetCore.InMemoryCache.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/[controller]/[action]")]
     [ApiController]
     public class PersonsController : ControllerBase
     {
@@ -47,7 +47,6 @@ namespace AspNetCore.InMemoryCache.Controllers
             }
         }
 
-        [Route("createperson")]
         [HttpPost]
         public async Task<IActionResult> CreatePerson(CreatePersonDto request, CancellationToken cancellationToken)
         {
@@ -59,5 +58,13 @@ namespace AspNetCore.InMemoryCache.Controllers
             _memoryCache.Remove(PersonsCacheKey);
             return Created();
         }
+
+
+        [HttpGet]
+        public async Task<IActionResult> GetPersonsFromDatabase(CancellationToken cancellationToken)
+        {
+            return Ok(await _dbContext.Persons.ToListAsync(cancellationToken));
+        }
+
     }
 }

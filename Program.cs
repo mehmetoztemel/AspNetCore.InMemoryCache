@@ -9,6 +9,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
@@ -30,6 +34,7 @@ using (var scope = app.Services.CreateScope())
     context.Database.Migrate();
 }
 
+app.UseResponseCompression();
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
