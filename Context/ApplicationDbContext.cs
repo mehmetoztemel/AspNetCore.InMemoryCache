@@ -14,8 +14,6 @@ namespace AspNetCore.InMemoryCache.Context
             modelBuilder.Entity<Person>().HasKey(p => p.Id);
             base.OnModelCreating(modelBuilder);
         }
-
-
         public DbSet<Person> Persons { get; set; }
     }
 }

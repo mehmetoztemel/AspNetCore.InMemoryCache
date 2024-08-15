@@ -4,80 +4,48 @@ namespace AspNetCore.InMemoryCache.Utilities
 {
     public static class Mapper
     {
-        /*passing value to target*/
-        public static TTarget Map<TSource, TTarget>(this TSource source)
+        public static TTarget MapTo<TSource, TTarget>(this TSource source) where TTarget : class
         {
-            var target = Activator.CreateInstance<TTarget>();
-            if (source == null) return target;
-            const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic;
+            if (source == null) return null;
 
-            /* find fields */
-            var srcFields = (from PropertyInfo aProp in typeof(TSource).GetProperties(flags)
-                             where aProp.CanRead     //check if prop is readable
-                             select new
-                             {
-                                 Name = aProp.Name,
-                                 Type = Nullable.GetUnderlyingType(aProp.PropertyType) ?? aProp.PropertyType
-                             }).ToList();
-            var trgFields = (from PropertyInfo aProp in target.GetType().GetProperties(flags)
-                             where aProp.CanWrite   //check if prop is writeable
-                             select new
-                             {
-                                 Name = aProp.Name,
-                                 Type = Nullable.GetUnderlyingType(aProp.PropertyType) ?? aProp.PropertyType
-                             }).ToList();
+            // Record türlerinde parametreli yapıcı kullanmamız gerektiği için
+            // reflection ile türü oluşturmak yerine her bir özellik için bir değer alıp
+            // yapıcı parametrelerine geçireceğiz.
+            var srcProperties = typeof(TSource).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanRead)
+                .ToList();
 
-            /* common fields where name and type same*/
-            var commonFields = srcFields.Intersect(trgFields).ToList();
+            var targetCtor = typeof(TTarget).GetConstructors(BindingFlags.Public | BindingFlags.Instance)
+                .FirstOrDefault();
 
-            /* assign values */
-            foreach (var aField in commonFields)
+            if (targetCtor == null) throw new InvalidOperationException("No public constructor found.");
+
+            var ctorParams = targetCtor.GetParameters();
+            var paramValues = new object[ctorParams.Length];
+
+            for (int i = 0; i < ctorParams.Length; i++)
             {
-                var value = source.GetType().GetProperty(aField.Name).GetValue(source, null);
-                PropertyInfo propertyInfos = target.GetType().GetProperty(aField.Name);
-                propertyInfos.SetValue(target, value, null);
+                var param = ctorParams[i];
+                var sourceProp = srcProperties.FirstOrDefault(p => p.Name == param.Name);
+                if (sourceProp != null)
+                {
+                    paramValues[i] = sourceProp.GetValue(source);
+                }
+                else
+                {
+                    paramValues[i] = param.ParameterType.IsValueType ? Activator.CreateInstance(param.ParameterType) : null;
+                }
             }
-            return target;
+
+            return (TTarget)targetCtor.Invoke(paramValues);
         }
-        /*passing values to given object*/
-        public static TTarget MapTo<TSource, TTarget>(this TSource aSource, TTarget aTarget)
+
+        public static List<TTarget> MapTo<TSource, TTarget>(this IEnumerable<TSource> source) where TTarget : class
         {
-            if (aSource == null) return aTarget;
-            const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic;
+            if (source == null) return new List<TTarget>();
 
-            /*TODO: find fields*/
-            var srcFields = (from PropertyInfo aProp in typeof(TSource).GetProperties(flags)
-                             where aProp.CanRead     //check if prop is readable
-                             select new
-                             {
-                                 Name = aProp.Name,
-                                 Type = Nullable.GetUnderlyingType(aProp.PropertyType) ?? aProp.PropertyType
-                             }).ToList();
-            var trgFields = (from PropertyInfo aProp in aTarget.GetType().GetProperties(flags)
-                             where aProp.CanWrite   //check if prop is writeable
-                             select new
-                             {
-                                 Name = aProp.Name,
-                                 Type = Nullable.GetUnderlyingType(aProp.PropertyType) ?? aProp.PropertyType
-                             }).ToList();
-
-            /*TODO: common fields where name and type same*/
-            var commonFields = srcFields.Intersect(trgFields).ToList();
-
-            /*assign values*/
-            foreach (var aField in commonFields)
-            {
-                var value = aSource.GetType().GetProperty(aField.Name).GetValue(aSource, null);
-                PropertyInfo propertyInfos = aTarget.GetType().GetProperty(aField.Name);
-                propertyInfos.SetValue(aTarget, value, null);
-            }
-            return aTarget;
+            return source.Select(s => s.MapTo<TSource, TTarget>()).ToList();
         }
 
-        /*returns new object with mapping*/
-        public static TTarget CreateMapped<TSource, TTarget>(this TSource aSource) where TTarget : new()
-        {
-            return aSource.MapTo(new TTarget());
-        }
     }
 }

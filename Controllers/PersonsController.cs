@@ -26,7 +26,6 @@ namespace AspNetCore.InMemoryCache.Controllers
                 // verinin ne kadar bellekte kalacağını bildiriyoruz.
                 AbsoluteExpiration = DateTime.Now.AddMinutes(10)
                 //AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
-
                 // veriye son erişimden sonra belirtilen süre kadar erişilmezse bellekten siler
                 //SlidingExpiration = TimeSpan.FromSeconds(10),
             };
@@ -52,13 +51,12 @@ namespace AspNetCore.InMemoryCache.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePerson(CreatePersonDto request, CancellationToken cancellationToken)
         {
-            Person person = Mapper.Map<CreatePersonDto, Person>(request);
+            Person person = Mapper.MapTo<CreatePersonDto, Person>(request);
 
             await _dbContext.Persons.AddAsync(person, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
             List<Person> personList = await _dbContext.Persons.ToListAsync(cancellationToken);
             _memoryCache.Remove(PersonsCacheKey);
-            _memoryCache.Set(PersonsCacheKey, personList, _cacheOptions);
             return Created();
         }
     }
