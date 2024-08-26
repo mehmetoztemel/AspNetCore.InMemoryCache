@@ -1,10 +1,11 @@
 ﻿using AspNetCore.InMemoryCache.Context;
 using AspNetCore.InMemoryCache.Dtos;
 using AspNetCore.InMemoryCache.Models;
-using AspNetCore.InMemoryCache.Utilities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using MO.Mapper;
+using MO.Result;
 
 namespace AspNetCore.InMemoryCache.Controllers
 {
@@ -34,37 +35,35 @@ namespace AspNetCore.InMemoryCache.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            _memoryCache.TryGetValue(PersonsCacheKey, out List<Person>? data);
-            if (data != null)
+            _memoryCache.TryGetValue(PersonsCacheKey, out List<Person>? persons);
+            if (persons != null)
             {
-                return Ok(data);
+                return Ok(Result<List<Person>>.Success(persons));
             }
             else
             {
-                data = await _dbContext.Persons.ToListAsync();
-                _memoryCache.Set(PersonsCacheKey, data, _cacheOptions);
-                return Ok(data);
+                persons = await _dbContext.Persons.ToListAsync();
+                _memoryCache.Set(PersonsCacheKey, persons, _cacheOptions);
+                return Ok(Result<List<Person>>.Success(persons));
             }
         }
 
         [HttpPost]
         public async Task<IActionResult> CreatePerson(CreatePersonDto request, CancellationToken cancellationToken)
         {
-            Person person = Mapper.MapTo<CreatePersonDto, Person>(request);
-
+            Person person = Mapper.Map<CreatePersonDto, Person>(request);
             await _dbContext.Persons.AddAsync(person, cancellationToken);
             await _dbContext.SaveChangesAsync(cancellationToken);
-            List<Person> personList = await _dbContext.Persons.ToListAsync(cancellationToken);
             _memoryCache.Remove(PersonsCacheKey);
-            return Created();
+            return Ok(Result<string>.Success("Person created"));
         }
 
 
         [HttpGet]
         public async Task<IActionResult> GetPersonsFromDatabase(CancellationToken cancellationToken)
         {
-            return Ok(await _dbContext.Persons.ToListAsync(cancellationToken));
+            var result = Mapper.Map<Person, PersonDto>(await _dbContext.Persons.ToListAsync(cancellationToken));
+            return Ok(Result<List<PersonDto>>.Success(result));
         }
-
     }
 }
